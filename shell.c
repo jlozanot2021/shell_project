@@ -1,3 +1,8 @@
+/************************************************
+ * Author: Vera T. Pascual
+ * Goal: definition of functions in 'Shell' project
+************************************************/
+
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
@@ -175,7 +180,7 @@ Program_Input *
 read_input(char * std_msg)
 {
   Program_Input *p = malloc(sizeof(Program_Input));
-  char *input, *output, *pp, *aux;
+  char *input, *output, *pp, *aux ;
   int i;
 
   memset(p, 0, sizeof(Program_Input));
@@ -186,23 +191,26 @@ read_input(char * std_msg)
 
   if ((aux = strrchr(std_msg, '&')) != NULL){
     p->background = 1;
+    p->in_file = "/dev/null";
     *aux = '\0';  // delete char '&'
   } else {
     p->background = 0;
   }
 
+  aux = std_msg;
   if ((input = strrchr(std_msg, '<')) != NULL) {
     input++;
-    p->in_file = ++input;
+    p->in_file = strtok_r(input," ",&input);
     printf("file: %s\n", p->in_file);
-    //*input = '\0';
+    strrchr(std_msg, '<')[0] = '\0';
   } else {
     p->in_file = NULL;
   }
 
-  if ((output = strrchr(std_msg, '>')) != NULL) {
-    p->out_file = output++;
-    //*output = '\0';
+  if ((output = strrchr(aux, '>')) != NULL) {
+    output++;
+    p->out_file = strtok_r(output," ",&output);
+    strrchr(aux, '>')[0] = '\0';
   } else {
     p->out_file = NULL;
   }
@@ -219,9 +227,9 @@ read_input(char * std_msg)
 }
 
 void
-child(Command *c, int bg, int in_fd, int out_fd)
+child(Command *c, int bg, char *in_fd, char *out_fd, int i, int commands)
 {
-  int status;
+  int status, fd_in = -1, fd_out = -1;
   pid_t pid;
 
   pid = fork();
@@ -232,13 +240,35 @@ child(Command *c, int bg, int in_fd, int out_fd)
   }
 
   if (pid == 0) {
-    if (c->cmd_fd[0] != STDIN_FILENO){
+    if (i == 0){
+            if (in_fd != NULL) { // if there is input from redirection file 
+        fd_in = open(in_fd, O_RDONLY);
+        if (fd_in < 0) {
+          fprintf(stderr, "error openning file origin/destination");
+        }
+        dup2(fd_in, 0);
+      }
+    }
+    if ( (i + 1) ==  commands){
+            if (out_fd != NULL) {
+        fd_out = open(out_fd, O_CREAT | O_TRUNC | O_WRONLY, S_IRWXU);
+        if (fd_out < 0) {
+          fprintf(stderr, "error openning file origin/destination");
+        }
+        dup2(fd_out, 1);
+      }
+    }
+    if( i != 0 ){
+      if (c->cmd_fd[0] != STDIN_FILENO){
       dup2(c->cmd_fd[0], STDIN_FILENO);
 			close(c->cmd_fd[0]);
     }
+    }
+    if( i + 1 != commands){
   	if (c->cmd_fd[1] != STDOUT_FILENO) {
 			dup2(c->cmd_fd[1], STDOUT_FILENO);
 			close(c->cmd_fd[1]);
+    }
 		}
     execute(c);
     close(c->cmd_fd[0]);
@@ -247,6 +277,12 @@ child(Command *c, int bg, int in_fd, int out_fd)
 	} else {		// parent process
     if (bg == 0) {
       waitpid(pid, &status, 0);
+            if ( fd_out != -1 ){
+        close(fd_out);
+      }
+      if (fd_in != -1){
+        close(fd_in);
+      }
     }
   }
 }
@@ -256,7 +292,7 @@ program(Program_Input *p)
 {
   int status;
 	pid_t pid;
-  int j, fd, stat, i = 0;
+  int j, fd_in = -1, fd_out = -1, stat, i = 0;
 
   stat = 0;
 
@@ -268,20 +304,31 @@ program(Program_Input *p)
     }
     if (pid == 0) {
       if (p->in_file != NULL) { // if there is input from redirection file 
-        fd = open(p->in_file, O_RDONLY);
-        if (fd < 0) {
+        fd_in = open(p->in_file, O_RDONLY);
+        if (fd_in < 0) {
           fprintf(stderr, "error openning file origin/destination");
         }
-        dup2(fd, 0);
-        execute(p->cmd[i]);
-        close(fd);
-      } else if (p->out_file != NULL) {
-        
-        execute(p->cmd[i]);
+        dup2(fd_in, 0);
+        //execute(p->cmd[i]);
+        //
+      } 
+      if (p->out_file != NULL) {
+        fd_out = open(p->out_file, O_CREAT | O_TRUNC | O_WRONLY, S_IRWXU);
+        if (fd_out < 0) {
+          fprintf(stderr, "error openning file origin/destination");
+        }
+        dup2(fd_out, 1);
+      }
+      execute(p->cmd[i]);
+      if ( fd_out != -1 ){
+        close(fd_out);
+      }
+      if (fd_in != -1){
+        close(fd_in);
       }
       
     }
-
+    
     if (p->background == 0) { // if cmd is in background, do not wait for child
       waitpid(pid, &status, 0);
     }
@@ -293,15 +340,9 @@ program(Program_Input *p)
         exit(EXIT_FAILURE);
       }
     }
+    for (j = 0; j < (p->num_pipes + 1); j++){
 
-    for (j = 0; j < p->num_pipes+1; j++){
-      if ((j = 0) && (p->in_file != NULL)) {
-        child(p->cmd[j], p->background, p->in_file, -1);
-      } else {
-        child(p->cmd[j], p->background);
-      }
-      
-
+      child(p->cmd[j], p->background, p->in_file, p->out_file, j,(p->num_pipes + 1));
       if (p->cmd[j]->cmd_fd[1] != 1) {
 			  close(p->cmd[j]->cmd_fd[1]);
 		  }
@@ -310,6 +351,7 @@ program(Program_Input *p)
         p->cmd[j + 1]->cmd_fd[0] = p->cmd[j]->cmd_fd[0];
         p->cmd[j + 1]->cmd_fd[1] = p->cmd[j]->cmd_fd[1];
       } 
+      
     }
 
     for (j = 0; j < p->num_pipes; j++) {

@@ -1,3 +1,8 @@
+/************************************************
+ * Author: Vera T. Pascual
+ * Goal: main program for 'Shell' project
+************************************************/
+
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <stdlib.h>

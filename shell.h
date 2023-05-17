@@ -1,3 +1,8 @@
+/************************************************
+ * Author: Vera T. Pascual
+ * Goal: header for functions in 'Shell' project
+************************************************/
+
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -44,7 +49,7 @@ void def_var(char *input);
 Program_Input* read_input(char * std_msg);
 
 // creates pipes to execute the cmd line
-void child(Command *c, int bg, int in_fd, int out_fd);
+void child(Command *c, int bg, char *in_fd, char *out_fd, int i, int commands);
 
 // main structure of execution and others
 int program(Program_Input *p);
