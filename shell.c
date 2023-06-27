@@ -33,11 +33,11 @@ check_bad_input(char *std_msg)
 {
   int i, bad_in;
 
-  if (std_msg[0] == '\n') { 
+  if (std_msg[0] == '\n') { // if only 'new line' is inserted
     bad_in = -1;
   }
   
-  for (i = 0; std_msg[i] ; i++) {
+  for (i = 0; std_msg[i] ; i++) { // if only 'space + new line' is inserted
     if (std_msg[i] > ' ') {
       bad_in = 1;
       break;
@@ -48,10 +48,9 @@ check_bad_input(char *std_msg)
     }
   }
   return bad_in;
-
 }
 
-void
+void  // NO VA !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11111
 free_mem(Program_Input *p){
   int i;
 
@@ -75,7 +74,6 @@ execute(Command *command)
 
   if (!strcmp(command->cmd_arg[0], "exit")){  // NO VA !!!!!!!!!!!!!!!!!!!!!
     printf("\n--exiting shell--\n");
-    //return -1;
     exit(EXIT_SUCCESS);
 
   } else if (!strcmp(command->cmd_arg[0], "cd")) {  // execution of 'cd' built-in
@@ -98,13 +96,12 @@ execute(Command *command)
       perror("program execution failed");
     }
   }
-	
-  //return 1;
 }
 
 char*
 del_tabs(char *std_msg)
 {
+  int i;
   char *last;
 
   while (*std_msg == ' ' || *std_msg == '\t'){  // Beginning of input
@@ -122,6 +119,13 @@ del_tabs(char *std_msg)
   }
 
   *(last+1) = 0;  // Character null at the end of line
+
+  for (i = 0; std_msg[i]; i++){ // If tab is in the middle of input
+    if(std_msg[i] == '\t'){
+      std_msg[i] = ' ';
+    }
+  }
+  
   return std_msg;
 }
 
@@ -135,10 +139,10 @@ tokenize(char *arg)
   memset(cmd,0,sizeof(Command ));
 
   arg = del_tabs(arg);
-
   path = strtok_r(arg, " ", &arg);
 	while (path != NULL) {	// while there are words in 'arg'
     
+
     if ((ptr_dollar = strrchr(path, '$')) != NULL) {
       ptr_dollar++;
       if ((env = getenv(ptr_dollar)) == NULL) {
@@ -165,20 +169,19 @@ def_var(char *input)
   char *name, *value, *symbol;
   int i;
 
-  if ((symbol = strrchr(input, '=')) != NULL) {
+  if ((symbol = strrchr(input, '=')) != NULL) { // divides input by '=' symbol
 
-    name = strtok(input, "=");
-    value = strtok(NULL, "=");
+    name = strtok(input, "=");  // left-side part is variable's name
+    value = strtok(NULL, "=");  // right-side part is variable's value
 
     if ((name != NULL) && (value != NULL)) {
-      if(setenv(name, value, 1) != 0){
+      if(setenv(name, value, 1) != 0){  // set new variable
         warn("program failed\n");
         exit (EXIT_FAILURE);
       }
-      memset(input, 0, sizeof(input[i]));
+      memset(input, 0, sizeof(input[i])); // set as null (delete) 'input' value
     }
   }
-
 }
 
 Program_Input *
