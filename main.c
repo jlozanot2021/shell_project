@@ -37,7 +37,7 @@ main(int argc, char *argv[])
         break;
       }
       printf("$ ");
-
+      //print_prompt();
     }
     return EXIT_SUCCESS;
   }

@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <err.h>
+//#include <pwd.h>
 
 #include "shell.h"
 
@@ -20,6 +21,30 @@ enum {
   MaxPath = 1024,
   BUFF_SIZE = 30000,
 };
+
+//void
+//print_prompt()
+//{
+//	char hostname[MAX_SIZE + 1];
+//	char cwd[MAX_SIZE + 1];
+//	struct passwd *pw;
+//
+//	// Obtener el nombre de usuario, el nombre del host y el directorio actual
+//	pw = getpwuid(getuid());
+//	gethostname(hostname, MAX_SIZE);
+//	getcwd(cwd, MAX_SIZE);
+//
+//	// Establecer el texto en negrita y en verde
+//	printf("\033[1;36m");	// 1 para negrita, 36 para cyan
+//	printf("%s@%s:", pw->pw_name, hostname);
+//
+//  printf("\033[1;31m");	// 1 para negrita, 36 para cyan
+//	printf("%s$ ",cwd);
+//
+//	// Restablecer el color y el estilo
+//	printf("\033[0m");
+//	fflush(stdout);
+//}
 
 int
 usage()
@@ -50,12 +75,25 @@ check_bad_input(char *std_msg)
   return bad_in;
 }
 
-void  // NO VA !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!11111
+void  // NO VA !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 free_mem(Program_Input *p){
-  int i;
+  int i, size;
+
+  if (p->in_file) {
+    size = sizeof(p->in_file);
+    memset(p->in_file, 0, size);
+  }
+  if (p->out_file) {
+    size = sizeof(p->in_file);
+    memset(p->out_file, 0, size);
+  }
 
   for (i = 0; i < p->num_pipes+1; i++) {
-    if (p->cmd[i] != NULL) {
+    if (p->cmd[i]) {
+      //for(j = 0; j < p->cmd[i]->argc; j++) {
+      //  fprintf(stderr,"ARGC: %d\n", p->cmd[i]->argc);
+      //  free(p->cmd[i]->cmd_arg[j]);
+      //}
       free(p->cmd[i]);
     }
   }
@@ -125,7 +163,7 @@ del_tabs(char *std_msg)
       std_msg[i] = ' ';
     }
   }
-  
+
   return std_msg;
 }
 
@@ -139,6 +177,7 @@ tokenize(char *arg)
   memset(cmd,0,sizeof(Command ));
 
   arg = del_tabs(arg);
+
   path = strtok_r(arg, " ", &arg);
 	while (path != NULL) {	// while there are words in 'arg'
     
@@ -170,7 +209,6 @@ def_var(char *input)
   int i;
 
   if ((symbol = strrchr(input, '=')) != NULL) { // divides input by '=' symbol
-
     name = strtok(input, "=");  // left-side part is variable's name
     value = strtok(NULL, "=");  // right-side part is variable's value
 
