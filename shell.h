@@ -54,6 +54,8 @@ void child(Command *c, int bg, char *in_fd, char *out_fd, int i, int commands);
 // main structure of execution and others
 int program(Program_Input *p);
 
+// deletes tabulators located end/beginnig of input
+char* del_tabs(char *std_msg);
 
 //void in_pipe(int fd[]);
 //

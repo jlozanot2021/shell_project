@@ -29,21 +29,15 @@ usage()
 }
 
 int
-check_bad_input (char *std_msg)
+check_bad_input(char *std_msg)
 {
   int i, bad_in;
 
   if (std_msg[0] == '\n') { 
     bad_in = -1;
   }
-
+  
   for (i = 0; std_msg[i] ; i++) {
-//    if (std_msg[i] == '\t') { // NO VA !!!!!!!!!!!! ESTA EN TOKENIZZE
-//      printf("tab\n");
-//      std_msg[i] = ' ';
-//      bad_in = 1;
-//    }
-
     if (std_msg[i] > ' ') {
       bad_in = 1;
       break;
@@ -108,32 +102,43 @@ execute(Command *command)
   //return 1;
 }
 
+char*
+del_tabs(char *std_msg)
+{
+  char *last;
+
+  while (*std_msg == ' ' || *std_msg == '\t'){  // Beginning of input
+    std_msg++;
+  }
+  
+  if(*std_msg == 0){  // If (once tabs at beginning are del) input is null
+    return std_msg;
+  }
+
+  last = std_msg + strlen(std_msg) - 1;
+
+  while (last > std_msg && (*last == ' ' || *last == '\t')) { // End of input
+    last--;
+  }
+
+  *(last+1) = 0;  // Character null at the end of line
+  return std_msg;
+}
+
 Command*
 tokenize(char *arg)
 {
   char *path, *ptr_dollar,  *env;
-	int i, j = 0;
+	int j = 0;
 
   Command *cmd = malloc(sizeof(Command));
   memset(cmd,0,sizeof(Command ));
 
+  arg = del_tabs(arg);
 
   path = strtok_r(arg, " ", &arg);
 	while (path != NULL) {	// while there are words in 'arg'
-
-    //if ((ptr_tab = strrchr(path, '\t')) != NULL) {
-    //  printf("tab\n");
-    //  fprintf(stderr, "AAAAAAA %s does not exist\n", path);
-    //  ptr_tab[j] = '\0';
-    //  fprintf(stderr, "VVVVVVVVV %s does not exist\n", path);
-    //}
-
-    for (i = 0; path[i]; i++) {
-      if (path[i] == '\t') {  // NO VA !!!!!!!!!!!!
-        printf("tab in %d\n", i);
-        path[i] = ' ';
-      }
-    }
+    
     if ((ptr_dollar = strrchr(path, '$')) != NULL) {
       ptr_dollar++;
       if ((env = getenv(ptr_dollar)) == NULL) {

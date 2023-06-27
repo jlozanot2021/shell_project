@@ -16,7 +16,6 @@ int
 main(int argc, char *argv[])
 {
   Program_Input *pgm;
-  //int 
   int status = EXIT_SUCCESS;
   char std_msg[3000];
 
