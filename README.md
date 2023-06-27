@@ -12,4 +12,6 @@ The follow requisites must be executed by the **shell** program:
 - Possibility of definning environment variables with equal symbol (=), and refering to them with dollar symbol ($)
 
 ### Built-ins
-Also, the program must has some built-in commands, like **cd** and **exit**.
+Also, the program has some built-in commands:
+- **cd** : change working directory
+- **exit** : end *shell* program
