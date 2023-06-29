@@ -172,7 +172,7 @@ tokenize(char *arg)
     if ((ptr_dollar = strrchr(path, '$')) != NULL) {
       ptr_dollar++;
       if ((env = getenv(ptr_dollar)) == NULL) {
-        fprintf(stderr, "error: var %s does not exist", ptr_dollar); // NO VA !!!!!!!!!!!!!!!!!!!!
+        fprintf(stderr, "error: var %s does not exist", ptr_dollar); // SI VA ????????????????????????
         //exit(EXIT_FAILURE);
       }
       cmd->cmd_arg[j] = env;
@@ -190,7 +190,7 @@ tokenize(char *arg)
 }
 
 void
-def_var(char *input) 
+def_var(char *input)
 {
   char *name, *value, *symbol;
   int i;
@@ -263,9 +263,11 @@ void
 child(Command *c, int bg, char *in_fd, char *out_fd, int i, int commands)
 {
   // ARG 'int i' refers to number of cmd inside pipeline !!
+  // ARG 'int commands' refers to total number of cmds !!
   int status, fd_in = -1, fd_out = -1;
   pid_t pid;
-
+  printf("num i : %d\n", i);
+  printf("num cmds : %d\n", commands);
   pid = fork();
 
   if (pid < 0) {		// error in fork
@@ -274,53 +276,72 @@ child(Command *c, int bg, char *in_fd, char *out_fd, int i, int commands)
   }
 
   if (pid == 0) {
-    if (i == 0){
+    if (i == 0){ // first cmd in pipeline
       if (in_fd != NULL) { // if there is input from redirection file 
         fd_in = open(in_fd, O_RDONLY);
         if (fd_in < 0) {
           fprintf(stderr, "error openning file origin/destination");
+          exit(EXIT_FAILURE);
         }
         dup2(fd_in, 0);
+        close(fd_in);
+      } else {  // ???
+        close(c->cmd_fd[0]);
+      }
+      if (c->cmd_fd[1] != STDOUT_FILENO) {
+			  dup2(c->cmd_fd[1], STDOUT_FILENO);
+			  close(c->cmd_fd[1]);
       }
     }
-    if ( (i + 1) ==  commands){
+    else if ( (i + 1) ==  commands){
       if (out_fd != NULL) { // if output to redirection file is needed
         fd_out = open(out_fd, O_CREAT | O_TRUNC | O_WRONLY, S_IRWXU);
         if (fd_out < 0) {
           fprintf(stderr, "error openning file origin/destination");
         }
         dup2(fd_out, 1);
+        close(fd_out);
+      } else { // ???
+        close(c->cmd_fd[1]);
       }
-    }
-    if( i != 0 ){
       if (c->cmd_fd[0] != STDIN_FILENO){
         dup2(c->cmd_fd[0], STDIN_FILENO);
 			  close(c->cmd_fd[0]);
+      }
     }
-    }
-    if( i + 1 != commands){
-  	  if (c->cmd_fd[1] != STDOUT_FILENO) {
+    else if( (i != 0) && (i + 1 != commands)){
+      printf("en medio\n");
+      if (c->cmd_fd[0] != STDIN_FILENO){
+        dup2(c->cmd_fd[0], STDIN_FILENO);
+			  close(c->cmd_fd[0]);
+      }
+      if (c->cmd_fd[1] != STDOUT_FILENO) {
 			  dup2(c->cmd_fd[1], STDOUT_FILENO);
 			  close(c->cmd_fd[1]);
       }
-		}
+    }
+    //if( i + 1 != commands){
+  	//  if (c->cmd_fd[1] != STDOUT_FILENO) {
+		//	  dup2(c->cmd_fd[1], STDOUT_FILENO);
+		//	  close(c->cmd_fd[1]);
+    //  }
+		//}
     execute(c);
     close(c->cmd_fd[0]);
     close(c->cmd_fd[1]);
 
 	} else {		// parent process
-    if (bg == 0) {
+    if (bg == 0) {  // si no hay background
       waitpid(pid, &status, 0);
       if ( fd_out != -1 ){
         close(fd_out);
       }
       if (fd_in != -1){
         close(fd_in);
-      }
+      }  
     }
   }
 }
-
 int
 program(Program_Input *p)
 {
@@ -330,52 +351,54 @@ program(Program_Input *p)
 
   stat = 0;
 
-  if (p->num_pipes == 0){
+  if (p->num_pipes == 0){ // there are no pipes
+    
     pid = fork();
     if (pid < 0) {		// error in fork
       perror("fork 1 failed");
       return EXIT_FAILURE;
     }
+
     if (pid == 0) {
       if (p->in_file != NULL) { // if there is input from redirection file 
         fd_in = open(p->in_file, O_RDONLY);
         if (fd_in < 0) {
           fprintf(stderr, "error openning file origin/destination");
+          exit(EXIT_FAILURE);
         }
-        dup2(fd_in, 0);
-        //execute(p->cmd[i]);
-        //
+        dup2(fd_in, 0); // input file
       } 
-      if (p->out_file != NULL) {
+      if (p->out_file != NULL) {  // if output is to redirection file 
         fd_out = open(p->out_file, O_CREAT | O_TRUNC | O_WRONLY, S_IRWXU);
         if (fd_out < 0) {
           fprintf(stderr, "error openning file origin/destination");
+          exit(EXIT_FAILURE);
         }
-        dup2(fd_out, 1);
+        dup2(fd_out, 1);  // output file
       }
-      execute(p->cmd[i]);
-      if ( fd_out != -1 ){
+      execute(p->cmd[i]); // execute cmd
+
+      if (fd_out != -1){
         close(fd_out);
       }
       if (fd_in != -1){
         close(fd_in);
       }
-      
     }
     
     if (p->background == 0) { // if cmd is in background, do not wait for child
       waitpid(pid, &status, 0);
     }
 
-  } else {
+  } else { // if there is 1 or more pipes
     for (j = 0; j < p->num_pipes; j++) {
       if (pipe(p->cmd[j]->cmd_fd) == -1) {	// pipe initialization
         perror("pipe failed");
         exit(EXIT_FAILURE);
       }
     }
-    for (j = 0; j < (p->num_pipes + 1); j++){
 
+    for (j = 0; j < (p->num_pipes + 1); j++){
       child(p->cmd[j], p->background, p->in_file, p->out_file, j,(p->num_pipes + 1));
       if (p->cmd[j]->cmd_fd[1] != 1) {
 			  close(p->cmd[j]->cmd_fd[1]);
