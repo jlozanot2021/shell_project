@@ -97,29 +97,12 @@ execute(Command *command)
 	int i;
 
   // cmd execution 
+  // execution of no built-in commands
 
-  if (!strcmp(command->cmd_arg[0], "exit")){  // NO VA !!!!!!!!!!!!!!!!!!!!!
-    printf("\n--exiting shell--\n");
-
-  } else if (!strcmp(command->cmd_arg[0], "cd")) {  // execution of 'cd' built-in
-    if (command->argc == 1) { // if 'cd' has no arguments, the arg is user's $HOME
-      chdir(getenv("HOME"));
-
-    } else if (command->argc == 2) {  // if 'cd' has 1 arg, change directory to arg
-      chdir(command->cmd_arg[1]);
-
-    } else {  // if 'cd' has more than 1 arg, error
-      fprintf(stderr, "error: too much arguments in cd command\n");
-      exit (EXIT_FAILURE);
-    }
-
-  } else {  // execution of no built-in commands
-
-    for (i = 0; dir[i] != NULL; i++) {
-      sprintf(path, "%s/%s", dir[i],command->cmd_arg[0]); // the cmd is searched in dir[i]
-      execv(path, command->cmd_arg);  // cmd execution
-      perror("program execution failed");
-    }
+  for (i = 0; dir[i] != NULL; i++) {
+    sprintf(path, "%s/%s", dir[i],command->cmd_arg[0]); // the cmd is searched in dir[i]
+    execv(path, command->cmd_arg);  // cmd execution
+    perror("program execution failed");
   }
 }
 
@@ -259,15 +242,15 @@ read_input(char * std_msg)
   return p;
 }
 
-void
-child(Command *c, int bg, char *in_fd, char *out_fd, int i, int commands)
+int
+child(Program_Input *p, int bg, char *in_fd, char *out_fd, int i, int commands)
 {
   // ARG 'int i' refers to number of cmd inside pipeline !!
   // ARG 'int commands' refers to total number of cmds !!
-  int status, fd_in = -1, fd_out = -1;
+  int fd_in = -1, fd_out = -1, j;
   pid_t pid;
-  printf("num i : %d\n", i);
-  printf("num cmds : %d\n", commands);
+  //printf("num i : %d\n", i);
+  //printf("num cmds : %d\n", commands);
   pid = fork();
 
   if (pid < 0) {		// error in fork
@@ -276,6 +259,13 @@ child(Command *c, int bg, char *in_fd, char *out_fd, int i, int commands)
   }
 
   if (pid == 0) {
+    for(j = 0; j < commands - 1; j++){
+      if( j == i || j + 1 == i ){
+        continue;
+      }
+      close(p->cmd[j]->cmd_fd[0]);
+      close(p->cmd[j]->cmd_fd[1]);
+    }
     if (i == 0){ // first cmd in pipeline
       if (in_fd != NULL) { // if there is input from redirection file 
         fd_in = open(in_fd, O_RDONLY);
@@ -284,13 +274,11 @@ child(Command *c, int bg, char *in_fd, char *out_fd, int i, int commands)
           exit(EXIT_FAILURE);
         }
         dup2(fd_in, 0);
-        close(fd_in);
-      } else {  // ???
-        close(c->cmd_fd[0]);
       }
-      if (c->cmd_fd[1] != STDOUT_FILENO) {
-			  dup2(c->cmd_fd[1], STDOUT_FILENO);
-			  close(c->cmd_fd[1]);
+      close(p->cmd[i]->cmd_fd[0]);
+      if (p->cmd[i]->cmd_fd[1] != STDOUT_FILENO) {
+			  dup2(p->cmd[i]->cmd_fd[1], STDOUT_FILENO);
+			  close(p->cmd[i]->cmd_fd[1]);
       }
     }
     else if ( (i + 1) ==  commands){
@@ -300,24 +288,25 @@ child(Command *c, int bg, char *in_fd, char *out_fd, int i, int commands)
           fprintf(stderr, "error openning file origin/destination");
         }
         dup2(fd_out, 1);
-        close(fd_out);
-      } else { // ???
-        close(c->cmd_fd[1]);
       }
-      if (c->cmd_fd[0] != STDIN_FILENO){
-        dup2(c->cmd_fd[0], STDIN_FILENO);
-			  close(c->cmd_fd[0]);
+
+      close(p->cmd[i - 1]->cmd_fd[1]);
+
+      if (p->cmd[i - 1]->cmd_fd[0] != STDIN_FILENO){
+        dup2(p->cmd[i - 1]->cmd_fd[0], STDIN_FILENO);
+			  close(p->cmd[i - 1]->cmd_fd[0]);
       }
     }
     else if( (i != 0) && (i + 1 != commands)){
-      printf("en medio\n");
-      if (c->cmd_fd[0] != STDIN_FILENO){
-        dup2(c->cmd_fd[0], STDIN_FILENO);
-			  close(c->cmd_fd[0]);
+      close(p->cmd[i]->cmd_fd[0]);
+      close(p->cmd[i - 1]->cmd_fd[1]);
+      if (p->cmd[i - 1]->cmd_fd[0] != STDIN_FILENO){
+        dup2(p->cmd[i -1]->cmd_fd[0], STDIN_FILENO);
+			  close(p->cmd[i -1]->cmd_fd[0]);
       }
-      if (c->cmd_fd[1] != STDOUT_FILENO) {
-			  dup2(c->cmd_fd[1], STDOUT_FILENO);
-			  close(c->cmd_fd[1]);
+      if (p->cmd[i]->cmd_fd[1] != STDOUT_FILENO) {
+			  dup2(p->cmd[i]->cmd_fd[1], STDOUT_FILENO);
+			  close(p->cmd[i]->cmd_fd[1]);
       }
     }
     //if( i + 1 != commands){
@@ -326,21 +315,21 @@ child(Command *c, int bg, char *in_fd, char *out_fd, int i, int commands)
 		//	  close(c->cmd_fd[1]);
     //  }
 		//}
-    execute(c);
-    close(c->cmd_fd[0]);
-    close(c->cmd_fd[1]);
+    execute(p->cmd[i]);
+    close(p->cmd[i]->cmd_fd[0]);
+    close(p->cmd[i]->cmd_fd[1]);
 
-	} else {		// parent process
-    if (bg == 0) {  // si no hay background
-      waitpid(pid, &status, 0);
-      if ( fd_out != -1 ){
-        close(fd_out);
-      }
-      if (fd_in != -1){
-        close(fd_in);
-      }  
+    //-----Nota : aqui debes poner exitsuccess cuando llegues a lo del ifnot / ifok
+    exit(EXIT_FAILURE);
+
+	}
+    if ( fd_out != -1 ){
+      close(fd_out);
     }
-  }
+    if (fd_in != -1){
+      close(fd_in);
+    } 
+  return pid;
 }
 int
 program(Program_Input *p)
@@ -351,6 +340,30 @@ program(Program_Input *p)
 
   stat = 0;
 
+//-------------------------------------------------------------------------------------------------------
+//Nota: puedes poner este bloque dentro de si no hay pipes ya que es un poco raro poner cd | ....
+
+  if (!strcmp(p->cmd[0]->cmd_arg[0], "exit")){  // NO VA !!!!!!!!!!!!!!!!!!!!!
+    printf("\n--exiting shell--\n");
+    free_mem(p);
+    exit (EXIT_SUCCESS);
+
+  } else if (!strcmp(p->cmd[0]->cmd_arg[0], "cd")) {  // execution of 'cd' built-in
+    if (p->cmd[0]->argc == 1) { // if 'cd' has no arguments, the arg is user's $HOME
+      chdir(getenv("HOME"));
+
+    } else if (p->cmd[0]->argc == 2) {  // if 'cd' has 1 arg, change directory to arg
+      chdir(p->cmd[0]->cmd_arg[1]);
+
+    } else {  // if 'cd' has more than 1 arg, error
+      fprintf(stderr, "error: too much arguments in cd command\n");
+      exit (EXIT_FAILURE);
+    }
+    return EXIT_SUCCESS;
+  }
+
+//------------------------------------------------------------------------------------------------------
+  
   if (p->num_pipes == 0){ // there are no pipes
     
     pid = fork();
@@ -399,16 +412,15 @@ program(Program_Input *p)
     }
 
     for (j = 0; j < (p->num_pipes + 1); j++){
-      child(p->cmd[j], p->background, p->in_file, p->out_file, j,(p->num_pipes + 1));
-      if (p->cmd[j]->cmd_fd[1] != 1) {
-			  close(p->cmd[j]->cmd_fd[1]);
-		  }
+      pid = child(p, p->background, p->in_file, p->out_file, j,(p->num_pipes + 1));
+      // if (p->cmd[j]->cmd_fd[1] != 1) {
+			  //close(p->cmd[j]->cmd_fd[1]);
+		  // }
       
-      if (j != p->num_pipes) {
-        p->cmd[j + 1]->cmd_fd[0] = p->cmd[j]->cmd_fd[0];
-        p->cmd[j + 1]->cmd_fd[1] = p->cmd[j]->cmd_fd[1];
-      } 
-      
+      //if (j != p->num_pipes){
+      //  memcpy(p->cmd[j + 1]->cmd_fd, p->cmd[j]->cmd_fd, sizeof(p->cmd[j]->cmd_fd));
+      //} 
+     
     }
 
     for (j = 0; j < p->num_pipes; j++) {
@@ -416,7 +428,13 @@ program(Program_Input *p)
       close(p->cmd[j]->cmd_fd[1]);
     }
   }
-
-  free_mem(p);
+  if (p->background == 0) {  // si no hay background
+    waitpid(pid, &status, 0); 
+    if (WIFEXITED(status)){
+      free_mem(p);
+      stat = WEXITSTATUS(status);
+      return stat;
+    }
+  }
   return stat;
 }

@@ -34,7 +34,7 @@ main(int argc, char *argv[])
       }
       pgm = read_input(std_msg);
       status = program(pgm);
-
+      
       if (status == -1) { // NO VA !!!!!!!!!!!!!!1
         break;
       }
