@@ -12,7 +12,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <err.h>
-//#include <pwd.h>
+#include <pwd.h>
 
 #include "shell.h"
 
@@ -22,29 +22,21 @@ enum {
   BUFF_SIZE = 30000,
 };
 
-//void
-//print_prompt()
-//{
-//	char hostname[MAX_SIZE + 1];
-//	char cwd[MAX_SIZE + 1];
-//	struct passwd *pw;
-//
-//	// Obtener el nombre de usuario, el nombre del host y el directorio actual
-//	pw = getpwuid(getuid());
-//	gethostname(hostname, MAX_SIZE);
-//	getcwd(cwd, MAX_SIZE);
-//
-//	// Establecer el texto en negrita y en verde
-//	printf("\033[1;36m");	// 1 para negrita, 36 para cyan
-//	printf("%s@%s:", pw->pw_name, hostname);
-//
-//  printf("\033[1;31m");	// 1 para negrita, 36 para cyan
-//	printf("%s$ ",cwd);
-//
-//	// Restablecer el color y el estilo
-//	printf("\033[0m");
-//	fflush(stdout);
-//}
+void
+print_prompt()
+{
+	char cwd[MAX_SIZE + 1];
+
+	// Obtener el nombre de usuario, el nombre del host y el directorio actual
+	getcwd(cwd, MAX_SIZE);
+
+  printf("\033[1;31m");
+	printf("%s$ ",cwd);
+
+	// Restablecer el color y el estilo
+	printf("\033[0m");
+	fflush(stdout);
+}
 
 int
 usage()
@@ -75,7 +67,7 @@ check_bad_input(char *std_msg)
   return bad_in;
 }
 
-void  // SI VA ??????????????????????????????????????????????
+void
 free_mem(Program_Input *p){
   int i, size;
 
@@ -90,10 +82,6 @@ free_mem(Program_Input *p){
 
   for (i = 0; i < p->num_pipes+1; i++) {
     if (p->cmd[i]) {
-      //for(j = 0; j < p->cmd[i]->argc; j++) {
-      //  fprintf(stderr,"ARGC: %d\n", p->cmd[i]->argc);
-      //  free(p->cmd[i]->cmd_arg[j]);
-      //}
       free(p->cmd[i]);
     }
   }
@@ -112,7 +100,6 @@ execute(Command *command)
 
   if (!strcmp(command->cmd_arg[0], "exit")){  // NO VA !!!!!!!!!!!!!!!!!!!!!
     printf("\n--exiting shell--\n");
-    exit(EXIT_SUCCESS);
 
   } else if (!strcmp(command->cmd_arg[0], "cd")) {  // execution of 'cd' built-in
     if (command->argc == 1) { // if 'cd' has no arguments, the arg is user's $HOME
@@ -185,7 +172,7 @@ tokenize(char *arg)
     if ((ptr_dollar = strrchr(path, '$')) != NULL) {
       ptr_dollar++;
       if ((env = getenv(ptr_dollar)) == NULL) {
-        fprintf(stderr, "error: var %s does not exist\n", ptr_dollar); // NO VA !!!!!!!!!!!!!!!!!!!!
+        fprintf(stderr, "error: var %s does not exist", ptr_dollar); // NO VA !!!!!!!!!!!!!!!!!!!!
         //exit(EXIT_FAILURE);
       }
       cmd->cmd_arg[j] = env;
@@ -275,6 +262,7 @@ read_input(char * std_msg)
 void
 child(Command *c, int bg, char *in_fd, char *out_fd, int i, int commands)
 {
+  // ARG 'int i' refers to number of cmd inside pipeline !!
   int status, fd_in = -1, fd_out = -1;
   pid_t pid;
 
@@ -287,7 +275,7 @@ child(Command *c, int bg, char *in_fd, char *out_fd, int i, int commands)
 
   if (pid == 0) {
     if (i == 0){
-            if (in_fd != NULL) { // if there is input from redirection file 
+      if (in_fd != NULL) { // if there is input from redirection file 
         fd_in = open(in_fd, O_RDONLY);
         if (fd_in < 0) {
           fprintf(stderr, "error openning file origin/destination");
@@ -296,7 +284,7 @@ child(Command *c, int bg, char *in_fd, char *out_fd, int i, int commands)
       }
     }
     if ( (i + 1) ==  commands){
-            if (out_fd != NULL) {
+      if (out_fd != NULL) { // if output to redirection file is needed
         fd_out = open(out_fd, O_CREAT | O_TRUNC | O_WRONLY, S_IRWXU);
         if (fd_out < 0) {
           fprintf(stderr, "error openning file origin/destination");
@@ -306,15 +294,15 @@ child(Command *c, int bg, char *in_fd, char *out_fd, int i, int commands)
     }
     if( i != 0 ){
       if (c->cmd_fd[0] != STDIN_FILENO){
-      dup2(c->cmd_fd[0], STDIN_FILENO);
-			close(c->cmd_fd[0]);
+        dup2(c->cmd_fd[0], STDIN_FILENO);
+			  close(c->cmd_fd[0]);
     }
     }
     if( i + 1 != commands){
-  	if (c->cmd_fd[1] != STDOUT_FILENO) {
-			dup2(c->cmd_fd[1], STDOUT_FILENO);
-			close(c->cmd_fd[1]);
-    }
+  	  if (c->cmd_fd[1] != STDOUT_FILENO) {
+			  dup2(c->cmd_fd[1], STDOUT_FILENO);
+			  close(c->cmd_fd[1]);
+      }
 		}
     execute(c);
     close(c->cmd_fd[0]);
@@ -323,7 +311,7 @@ child(Command *c, int bg, char *in_fd, char *out_fd, int i, int commands)
 	} else {		// parent process
     if (bg == 0) {
       waitpid(pid, &status, 0);
-            if ( fd_out != -1 ){
+      if ( fd_out != -1 ){
         close(fd_out);
       }
       if (fd_in != -1){
@@ -406,6 +394,6 @@ program(Program_Input *p)
     }
   }
 
-  free_mem(p); // NO VA !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  free_mem(p);
   return stat;
 }

@@ -23,9 +23,11 @@ main(int argc, char *argv[])
     status = usage();
   }
   else {
-    printf("\n--- SHELL by VERA T. PASCUAL GUIJARRO ---\n\n$ ");
+    printf("\n--- SHELL by VERA T. PASCUAL GUIJARRO ---\n\n");
+    print_prompt();
 
     while(fgets(std_msg, 3000, stdin)) {  // read standar input from user
+      
       if (check_bad_input(std_msg) == -1) { // true if '\n' or '\0\n' is  inserted
         printf("$ ");
         continue;
@@ -36,8 +38,8 @@ main(int argc, char *argv[])
       if (status == -1) { // NO VA !!!!!!!!!!!!!!1
         break;
       }
-      printf("$ ");
-      //print_prompt();
+      //printf("$ ");
+      print_prompt();
     }
     return EXIT_SUCCESS;
   }

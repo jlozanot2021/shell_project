@@ -24,7 +24,7 @@ struct Command {
 
 typedef struct Command Command;
 
-//void print_prompt();
+void print_prompt();
 // prints program's usage and returns with failure
 int usage();
 
